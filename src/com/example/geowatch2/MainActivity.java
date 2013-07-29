@@ -20,15 +20,38 @@ import android.widget.EditText;
 
 public class MainActivity extends Activity {
 
-	public final static String EXTRA_MESSAGE = "com.example.myfirstapp.MESSAGE";
+	//public final static String EXTRA_MESSAGE = "com.example.myfirstapp.MESSAGE";
 	
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        init_bt();
+        
+        Intent intent = getIntent();
+        String action = intent.getAction();
+        String type = intent.getType();
+
+        if (Intent.ACTION_SEND.equals(action) && type != null) {
+            if ("text/plain".equals(type)) {
+                handleSendText(intent); // Handle text being sent
+            }
+        }
+    }
+    
+    /*protected void onStart(){
+        open_socket();
+    }*/
+    
+    protected void onPause(){
+        super.onPause();
+    	close_socket();
     }
 
+    protected void onResume(){
+        super.onResume();
+    	init_bt();
+    	open_socket();
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -46,6 +69,7 @@ public class MainActivity extends Activity {
     	//String text = "s;60;-22";
 		try {
 			send_data(message.getBytes("UTF-8"));
+			//close_socket();
 		} catch (UnsupportedEncodingException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -78,20 +102,59 @@ public class MainActivity extends Activity {
 		}
 	}
 	
-	public void send_data(byte[] data){
-		OutputStream out = null;
+	public void open_socket(){
 		try {
 		    socket = device.createInsecureRfcommSocketToServiceRecord(SERIAL_UUID);
-		} catch (IOException e) {}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
-		try {           
-			Log.i("MainActivity", "GeoWatch2.socket created: " + socket);
+		try {
 		    socket.connect();
-		    Log.i("MainActivity", "GeoWatch2.socket connected: " + socket);
-		    out = socket.getOutputStream();
-		    Log.i("MainActivity", "GeoWatch2.out created: " + out);
-		    //now you can use out to send output via out.write
-		    out.write(data);
-		} catch (IOException e) {}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
+	
+	public void close_socket(){
+	    try {
+			socket.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public void send_data(byte[] data) {
+		OutputStream out = null;
+		try {
+			out = socket.getOutputStream();
+			out.write(data);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+    void handleSendText(Intent intent) {
+        String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
+        if (sharedText != null) {
+        	EditText editText = (EditText)findViewById(R.id.edit_message);
+        	sharedText = sharedText.replace(',', '.');
+        	String[] coords = sharedText.split(" ");
+        	String processed_coords = new String("s;" + coords[0] + ";" + coords[1]);
+        	//editText.setText("Testing");
+        	editText.setText(processed_coords);
+        	/*
+        	try {
+				send_data(sharedText.getBytes("UTF-8"));
+			} catch (UnsupportedEncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+        	close_socket();*/
+        }
+    }
 }
