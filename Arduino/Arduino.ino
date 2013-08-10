@@ -1,19 +1,50 @@
+/*****
+
+GeoWatch-project - Arduino-application
+This is prototype of the Arduino-part of GeoWatch. At this state the program is not optimized and is highly unreliable.
+
+GeoWatch is Open Hardware & Open Source project to create better handheld GPS-device for Geocaching.
+The prototype-platform uses Arduino Mega equipped with 
+ - 128*64 OLED-display [D0]
+ - BTM-5 bluetooth shield
+ - HMC5883L 3-axis Compass
+ - blox NEO-6M GPS shield.
+
+NOTICE!! All of the peripherials connected to the Arduino use 3.3V VCC, so the serial communication requires proper level shifter to handle the communication. With this prototype, transistor based bi-directional 8-channel level shifter is used. 
+
+*****/
+
+// Reference math-library
 #include <math.h>
-#include <Wire.h>
+// Adafruit Graphics-library
 #include <Adafruit_GFX.h>
+// Adafruit OLED-library for SSD1306
 #include <Adafruit_SSD1306.h>
+// Reference the I2C Library
+#include <Wire.h>
+
 //#include "floatToString.h"
 
+// Indicator led connected to PIN30
+#define LED = 30
+
+// Define pins for display
 #define OLED_DC 4
 #define OLED_CS 3
 #define OLED_CLK 52
 #define OLED_MOSI 51
 #define OLED_RESET 5
-Adafruit_SSD1306 display(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
+
+// Define radius of earth, used for coordinate calculations
 #define R_EARTH 6371 //km
 
-int led = 30;
+// Store display variable
+Adafruit_SSD1306 display(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
+
+// Flag to clear display
 boolean clear_dsp = false;
+
+// Initialize coordinate and bearing-variables
 float homeN = 60.46085;
 float homeW = -22.2983;
 float targetN = 0.0;
