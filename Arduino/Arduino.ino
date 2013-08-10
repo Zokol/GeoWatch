@@ -22,11 +22,13 @@ NOTICE!! All of the peripherials connected to the Arduino use 3.3V VCC, so the s
 #include <Adafruit_SSD1306.h>
 // Reference the I2C Library
 #include <Wire.h>
+// Reference the HMC5883L Compass Library
+#include <HMC5883L.h>
 
 //#include "floatToString.h"
 
 // Indicator led connected to PIN30
-#define LED = 30
+#define LED 30
 
 // Define pins for display
 #define OLED_DC 4
@@ -41,6 +43,12 @@ NOTICE!! All of the peripherials connected to the Arduino use 3.3V VCC, so the s
 // Store display variable
 Adafruit_SSD1306 display(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
 
+// Store compass variable
+HMC5883L compass;
+
+// Record any errors that may occur in the compass.
+int error = 0;
+
 // Flag to clear display
 boolean clear_dsp = false;
 
@@ -51,6 +59,11 @@ float targetN = 0.0;
 float targetW = 0.0;
 float curr_bearing = 180.0;
 
+// Initialize log array and set configs
+#define LOG_LENGTH 6
+char* cmdlog[LOG_LENGTH];
+int log_index = 0;
+
 // the setup routine runs once when you press reset:
 void setup() {
   // initialize serial to PC communication at 9600 bits per second:
@@ -59,21 +72,51 @@ void setup() {
   Serial1.begin(38400);
   initUART();
   
-  pinMode(led, OUTPUT);
-  digitalWrite(led, HIGH);
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, HIGH);
   delay(500);
-  digitalWrite(led, LOW);
   
   // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
   display.begin(SSD1306_SWITCHCAPVCC);
   display.clearDisplay();
   display.setTextColor(WHITE);
-  display.setTextSize(6);
-  display.setCursor(10,20);
-  display.println("GPS");
-  display.display();
-  delay(2000);
+  
+  //delay(2000);
+  
+  // initialize the I2C-bus to compass
+  Wire.begin();
+  
+  addLog("Const HMC5883L");
+  Serial.println("Constructing new HMC5883L");
+  showLog();
+  // Construct a new HMC5883 compass.
+  compass = HMC5883L();
+  
+  delay(500);
+  addLog("Scale 1.3 Ga");
+  Serial.println("Setting scale to +/- 1.3 Ga");
+  showLog();
+  // Set the scale of the compass.
+  error = compass.SetScale(1.3);
+  if(error != 0) // If there is an error, print it out.
+    Serial.println(compass.GetErrorText(error));
+  delay(500);
+  addLog("Set contious");
+  Serial.println("Setting measurement mode to continous.");
+  showLog();
+  error = compass.SetMeasurementMode(Measurement_Continuous); // Set the measurement mode to Continuous
+  if(error != 0) // If there is an error, print it out.
+    Serial.println(compass.GetErrorText(error));
+  delay(500);
+  
+  digitalWrite(LED, LOW);
   display.clearDisplay();
+
+  display.setTextSize(4);
+  display.setCursor(0,16);
+  display.println("READY");
+  display.display();
+  delay(1000);
 }
 
 // the loop routine runs over and over again forever:
@@ -120,7 +163,8 @@ void loop() {
         bearing_str = "<< " + bearing_str;
       }
       
-      digitalWrite(led, HIGH);
+      display.clearDisplay();
+      digitalWrite(LED, HIGH);
       display.setTextColor(WHITE);
       display.setTextSize(2);
       display.setCursor(0,0);
@@ -135,8 +179,8 @@ void loop() {
     }
   }
   else {
-    display.display();
-    digitalWrite(led, LOW);
+    //display.display();
+    digitalWrite(LED, LOW);
     clear_dsp = true;
   }
 }
@@ -146,6 +190,32 @@ void initUART() {
   Serial1.write("AT+ORGL");
   Serial1.write(0x0d);
   Serial1.write(0x0a);
+}
+
+void showLog() {
+  int x = 0;
+  int y = 0;
+  
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0,0);
+  for (int i = 0; i < LOG_LENGTH; i++){
+    display.println(cmdlog[i]);
+    //y = y + 10;
+  }
+  display.display();
+}
+
+void addLog(char* str) {
+  cmdlog[log_index] = str;
+  log_index = (log_index + 1) % LOG_LENGTH;
+}
+
+void clearLog() {
+  log_index = 0;
+  for (int i = 0; i < LOG_LENGTH; i++){
+    cmdlog[i] = "";
+  }
 }
 
 float getDistance(){
