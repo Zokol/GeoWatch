@@ -52,12 +52,16 @@ int error = 0;
 // Flag to clear display
 boolean clear_dsp = false;
 
+// Flag for target coords
+boolean target_set = false;
+
 // Initialize coordinate and bearing-variables
 float homeN = 60.46085;
 float homeW = -22.2983;
 float targetN = 0.0;
 float targetW = 0.0;
 float curr_bearing = 180.0;
+float declinationAngle = 0.0457;
 
 // Initialize log array and set configs
 #define LOG_LENGTH 6
@@ -121,61 +125,95 @@ void setup() {
 
 // the loop routine runs over and over again forever:
 void loop() {
-  if(Serial1.available()) {
+  if(target_set){
+    // Retrive the raw values from the compass (not scaled).
+    MagnetometerRaw raw = compass.ReadRawAxis();
+    // Retrived the scaled values from the compass (scaled to the configured scale).
+    MagnetometerScaled scaled = compass.ReadScaledAxis();
+    
+    // Calculate heading when the magnetometer is level, then correct for signs of axis.
+    curr_bearing = atan2(scaled.YAxis, scaled.XAxis);
+    Serial.println(curr_bearing);
+    
+    // Once you have your heading, you must then add your 'Declination Angle', which is the 'Error' of the magnetic field in your location.
+    // Find yours here: http://www.magnetic-declination.com/
+    // Mine is: 2� 37' W, which is 2.617 Degrees, or (which we need) 0.0456752665 radians, I will use 0.0457
+    // If you cannot find your Declination, comment out these two lines, your compass will be slightly off.
+    curr_bearing += declinationAngle;
+    
+    // Correct for when signs are reversed.
+    if(curr_bearing < 0)
+      curr_bearing += 2*PI;
+      
+    // Check for wrap due to addition of declination.
+    if(curr_bearing > 2*PI)
+      curr_bearing -= 2*PI;
+     
+    // Convert radians to degrees for readability.
+    curr_bearing = curr_bearing * 180/M_PI; 
+    
+    if(clear_dsp){
+      display.clearDisplay();
+      clear_dsp = false;
+    }
+    
+    float distance = getDistance();
+    float bearing = getBearing();
+    
+    char buffer[30];
+    String distance_str = "";
+    String bearing_str = "";
+    
+    if(distance > 0){
+      distance_str = floatToString(buffer, distance, 2, 0, false);
+      distance_str = distance_str + " km";
+    }
+    else{
+      distance = distance / 100;
+      distance_str = floatToString(buffer, distance, 2, 0, false);
+      distance_str = distance_str + " m";
+    }
+    
+    bearing_str = floatToString(buffer, bearing, 0, 0, false);
+    
+    int brng_target = (int) bearing;
+    int brng_curr = (int) curr_bearing;
+    
+    if(brng_target - 1 >= brng_curr && brng_curr <= brng_target + 1){
+      bearing_str = " | " + bearing_str + " | ";
+    }
+    else if(brng_target > brng_curr){
+      bearing_str = "   " + bearing_str + " >>";
+    }
+    else if(brng_target < brng_curr){
+      bearing_str = "<< " + bearing_str;
+    }
+    else{
+      bearing_str = "| ERROR |";
+    }
+    
+    display.clearDisplay();
+    digitalWrite(LED, HIGH);
+    display.setTextColor(WHITE);
+    display.setTextSize(2);
+    display.setCursor(0,0);
+    display.println(targetN);
+    display.setCursor(0,16);
+    display.println(targetW);
+    display.setCursor(0,32);
+    display.println(distance_str);
+    display.setCursor(0,48);
+    display.println(bearing_str);
+    display.display();
+  }
+  else if(Serial1.available()) {
     if(Serial1.read() == 's'){
       targetN = Serial1.parseFloat();
       targetW = Serial1.parseFloat();
-      
-      if(clear_dsp){
-        display.clearDisplay();
-        clear_dsp = false;
-      }
-      
-      float distance = getDistance();
-      float bearing = getBearing();
-      
-      char buffer[30];
-      String distance_str = "";
-      String bearing_str = "";
-      
-      if(distance > 0){
-        distance_str = floatToString(buffer, distance, 2, 0, false);
-        distance_str = distance_str + " km";
-      }
-      else{
-        distance = distance / 100;
-        distance_str = floatToString(buffer, distance, 2, 0, false);
-        distance_str = distance_str + " m";
-      }
-      
-      bearing_str = floatToString(buffer, bearing, 0, 0, false);
-      
-      int brng_target = (int) bearing;
-      int brng_curr = (int) curr_bearing;
-      
-      if(brng_target > brng_curr){
-        bearing_str = "   " + bearing_str + " >>";
-      }
-      else if(brng_target == brng_curr){
-        bearing_str = " | " + bearing_str + " | ";
-      }
-      else{
-        bearing_str = "<< " + bearing_str;
-      }
-      
-      display.clearDisplay();
-      digitalWrite(LED, HIGH);
-      display.setTextColor(WHITE);
-      display.setTextSize(2);
-      display.setCursor(0,0);
-      display.println(targetN);
-      display.setCursor(0,16);
-      display.println(targetW);
-      display.setCursor(0,32);
-      display.println(distance_str);
-      display.setCursor(0,48);
-      display.println(bearing_str);
-      display.display();
+      Serial.println("Received coords");
+      Serial.println(targetN);
+      Serial.println(targetW);
+      target_set = true;
     }
   }
   else {
