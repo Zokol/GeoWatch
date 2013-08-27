@@ -90,24 +90,24 @@ void setup() {
   // initialize the I2C-bus to compass
   Wire.begin();
   
-  addLog("Const HMC5883L");
+  //addLog("Const HMC5883L");
   Serial.println("Constructing new HMC5883L");
-  showLog();
+  //showLog();
   // Construct a new HMC5883 compass.
   compass = HMC5883L();
   
   delay(500);
-  addLog("Scale 1.3 Ga");
+  //addLog("Scale 1.3 Ga");
   Serial.println("Setting scale to +/- 1.3 Ga");
-  showLog();
+  //showLog();
   // Set the scale of the compass.
   error = compass.SetScale(1.3);
   if(error != 0) // If there is an error, print it out.
     Serial.println(compass.GetErrorText(error));
   delay(500);
-  addLog("Set contious");
+  //addLog("Set contious");
   Serial.println("Setting measurement mode to continous.");
-  showLog();
+  //showLog();
   error = compass.SetMeasurementMode(Measurement_Continuous); // Set the measurement mode to Continuous
   if(error != 0) // If there is an error, print it out.
     Serial.println(compass.GetErrorText(error));
